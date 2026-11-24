@@ -31,8 +31,8 @@ export function validateHardModeGuess(guessedCity, targetCity, unlockedCluesCoun
     }
   }
 
-  // Clue 4: Country Initial check (unlocked at 4+ wrong guesses)
-  if (unlockedCluesCount >= 4) {
+  // Clue 4: Country Initial check (unlocked at 5 clues revealed)
+  if (unlockedCluesCount >= 5) {
     const targetInitial = targetCity.country.charAt(0).toUpperCase();
     const guessInitial = guessedCity.country.charAt(0).toUpperCase();
     if (targetInitial !== guessInitial) {

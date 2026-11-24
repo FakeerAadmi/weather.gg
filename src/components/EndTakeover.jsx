@@ -5,6 +5,12 @@ import { getWeatherMeta } from '../engine/weatherCodes';
 import { sound } from '../utils/sound';
 import { vibrateTap } from '../utils/haptics';
 
+function getCardinalArrow(deg) {
+  const arrows = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'];
+  const idx = Math.round(deg / 45) % 8;
+  return arrows[idx];
+}
+
 export default function EndTakeover({
   isOpen,
   onClose,
@@ -55,13 +61,15 @@ export default function EndTakeover({
     vibrateTap();
 
     const title = isPractice ? 'aether (practice)' : `aether #${dayNumber}`;
-    const score = isWon ? `${guesses.length}/6` : 'x/6';
+    const score = isWon ? `${guesses.length}/6` : 'X/6';
     const lines = guesses.map((g, i) => {
-      if (g.distanceKm === 0) return `${i + 1}. ${g.city.name} -> 0 km [100%]`;
-      return `${i + 1}. ${g.city.name} -> ${g.distanceKm.toLocaleString()} km`;
+      if (g.distanceKm === 0) return `${i + 1}. 0 km · 100% [Solved]`;
+      const prox = Math.max(0, Math.min(99, Math.round(100 - (g.distanceKm / 20015) * 100)));
+      const arrow = getCardinalArrow(g.bearing);
+      return `${i + 1}. ${g.distanceKm.toLocaleString()} km ${arrow} (${prox}%)`;
     }).join('\n');
 
-    const shareBody = `${title} ${score}\n\n${lines}\n\n${city.name}, ${city.country}\nhttps://fakeeraadmi.github.io/weather.gg/`;
+    const shareBody = `${title} ${score}\n\n${lines}\n\nhttps://fakeeraadmi.github.io/weather.gg/`;
 
     if (navigator.share) {
       try {

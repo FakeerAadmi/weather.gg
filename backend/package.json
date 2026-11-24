@@ -1,0 +1,19 @@
+{
+  "name": "weather-gg-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "hono": "^4.7.2",
+    "@hono/node-server": "^1.13.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "@types/node": "^22.13.10"
+  }
+}

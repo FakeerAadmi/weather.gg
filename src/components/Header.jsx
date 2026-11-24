@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GlyphBarChart, GlyphHelp } from './Glyphs';
+import { GlyphBarChart, GlyphHelp, GlyphSettings } from './Glyphs';
 import { Volume2, VolumeX, Sun, Moon } from 'lucide-react';
 import { sound } from '../utils/sound';
 import { vibrateTap } from '../utils/haptics';
@@ -15,6 +15,7 @@ export default function Header({
   onToggleTheme,
   onOpenStats,
   onOpenHelp,
+  onOpenSettings,
   onReturnHub
 }) {
   const [countdown, setCountdown] = useState('');
@@ -64,25 +65,12 @@ export default function Header({
           </span>
         </div>
 
-        {/* Right: Sound, Theme, Stats, Help (24px icons, 44px touch targets) */}
-        <div className="flex items-center gap-0.5">
-          {/* Sound Toggle */}
-          <button
-            onClick={() => handleAction(onToggleSound)}
-            className="w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors touch-target"
-            aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-5 h-5" />
-            ) : (
-              <VolumeX className="w-5 h-5 opacity-50" />
-            )}
-          </button>
-
+        {/* Right: Theme, Stats, Settings (3 buttons, zero overflow on mobile) */}
+        <div className="flex items-center gap-1">
           {/* Theme Toggle */}
           <button
             onClick={() => handleAction(onToggleTheme)}
-            className="w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors touch-target"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-elevated)] transition-colors touch-target"
             aria-label="Toggle theme"
           >
             {theme === 'light' ? (
@@ -95,19 +83,19 @@ export default function Header({
           {/* Stats Button */}
           <button
             onClick={() => handleAction(onOpenStats)}
-            className="w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors touch-target"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-elevated)] transition-colors touch-target"
             aria-label="Statistics"
           >
             <GlyphBarChart className="w-5 h-5" />
           </button>
 
-          {/* Help Button */}
+          {/* Settings Button */}
           <button
-            onClick={() => handleAction(onOpenHelp)}
-            className="w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors touch-target"
-            aria-label="How to play"
+            onClick={() => handleAction(onOpenSettings)}
+            className="w-10 h-10 flex items-center justify-center rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-elevated)] transition-colors touch-target"
+            aria-label="Settings"
           >
-            <GlyphHelp className="w-5 h-5" />
+            <GlyphSettings className="w-5 h-5" />
           </button>
         </div>
       </div>

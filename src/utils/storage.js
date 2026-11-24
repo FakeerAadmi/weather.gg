@@ -33,18 +33,31 @@ export function saveStats(stats) {
   }
 }
 
+function isConsecutiveDay(prevDateStr, currDateStr) {
+  if (!prevDateStr) return false;
+  const prev = new Date(`${prevDateStr}T00:00:00Z`).getTime();
+  const curr = new Date(`${currDateStr}T00:00:00Z`).getTime();
+  const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+  return diffDays === 1;
+}
+
 export function recordGameCompletion(isWon, guessCount, dateStr) {
   const stats = loadStats();
   if (stats.lastCompletedDate === dateStr) {
     return stats; // Already recorded today
   }
 
+  const prevCompleted = stats.lastCompletedDate;
   stats.gamesPlayed += 1;
   stats.lastCompletedDate = dateStr;
 
   if (isWon) {
     stats.gamesWon += 1;
-    stats.currentStreak += 1;
+    if (isConsecutiveDay(prevCompleted, dateStr)) {
+      stats.currentStreak += 1;
+    } else {
+      stats.currentStreak = 1;
+    }
     if (stats.currentStreak > stats.maxStreak) {
       stats.maxStreak = stats.currentStreak;
     }

@@ -8,6 +8,7 @@ import FloatingInput from './components/FloatingInput';
 import EndTakeover from './components/EndTakeover';
 import StatsModal from './components/StatsModal';
 import HowToPlayModal from './components/HowToPlayModal';
+import SettingsModal from './components/SettingsModal';
 import SolvabilityDebugPanel from './components/SolvabilityDebugPanel';
 
 import cities from './data/cities.json';
@@ -20,6 +21,8 @@ import { loadSettings, saveSettings, applySettingsToDOM } from './utils/settings
 import { sound } from './utils/sound';
 import { vibrateWin, vibrateWrong, vibrateError, vibrateTap } from './utils/haptics';
 import { validateHardModeGuess } from './utils/hardMode';
+
+import { fetchDailyPuzzleFromBackend, submitGuessToBackend } from './utils/apiClient';
 
 const MAX_GUESSES = 6;
 const HAS_SEEN_TUTORIAL_KEY = 'aether_has_seen_tutorial_v2';
@@ -44,6 +47,7 @@ export default function App() {
   // UI States & Modals
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isEndTakeoverOpen, setIsEndTakeoverOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
 
@@ -70,7 +74,7 @@ export default function App() {
       localStorage.setItem(HAS_SEEN_TUTORIAL_KEY, 'true');
     }
 
-    if (window.location.search.includes('debug=1')) {
+    if (import.meta.env.DEV && window.location.search.includes('debug=1')) {
       setIsDebugOpen(true);
     }
   }, []);
@@ -150,6 +154,16 @@ export default function App() {
     return generateClues(targetData.city, weatherSnapshot);
   }, [targetData.city, weatherSnapshot]);
 
+  const handleUpdateSettings = (partial) => {
+    const updated = { ...settings, ...partial };
+    setSettings(updated);
+    saveSettings(updated);
+    applySettingsToDOM(updated);
+    if (partial.sound !== undefined) {
+      sound.setEnabled(partial.sound);
+    }
+  };
+
   const handleToggleSound = () => {
     const nextSound = !settings.sound;
     const updated = { ...settings, sound: nextSound };
@@ -177,7 +191,7 @@ export default function App() {
   };
 
   // Guess submission
-  const handleGuess = (guessedCity) => {
+  const handleGuess = async (guessedCity) => {
     if (gameStatus !== 'in_progress' || !weatherSnapshot) return;
 
     const targetCity = targetData.city;
@@ -191,21 +205,40 @@ export default function App() {
       }
     }
 
-    const distanceKm = calculateDistanceKm(
-      guessedCity.lat,
-      guessedCity.lon,
-      targetCity.lat,
-      targetCity.lon
-    );
+    let distanceKm, bearing, direction, isMatch;
 
-    const bearing = calculateBearing(
-      guessedCity.lat,
-      guessedCity.lon,
-      targetCity.lat,
-      targetCity.lon
-    );
+    // Try authoritative backend
+    const backendResult = await submitGuessToBackend(guessedCity.id, guesses.length + 1);
 
-    const direction = getBearingDirection(bearing);
+    if (backendResult && backendResult.distanceKm !== undefined) {
+      distanceKm = backendResult.distanceKm;
+      bearing = backendResult.bearing;
+      direction = getBearingDirection(bearing);
+      isMatch = backendResult.match;
+
+      if (isMatch && backendResult.revealedCity) {
+        setTargetData(prev => ({ ...prev, city: backendResult.revealedCity }));
+        if (backendResult.weather) setWeatherSnapshot(backendResult.weather);
+      }
+    } else {
+      // Local calculation fallback
+      distanceKm = calculateDistanceKm(
+        guessedCity.lat,
+        guessedCity.lon,
+        targetCity.lat,
+        targetCity.lon
+      );
+
+      bearing = calculateBearing(
+        guessedCity.lat,
+        guessedCity.lon,
+        targetCity.lat,
+        targetCity.lon
+      );
+
+      direction = getBearingDirection(bearing);
+      isMatch = distanceKm === 0 || guessedCity.id === targetCity.id;
+    }
 
     const newGuess = {
       city: guessedCity,
@@ -217,8 +250,6 @@ export default function App() {
 
     const newGuesses = [...guesses, newGuess];
     setGuesses(newGuesses);
-
-    const isMatch = distanceKm === 0 || guessedCity.id === targetCity.id;
 
     if (isMatch) {
       // VICTORY
@@ -369,6 +400,7 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onOpenStats={() => setIsStatsOpen(true)}
         onOpenHelp={() => setIsHowToPlayOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onReturnHub={() => setView('hub')}
       />
 
@@ -466,6 +498,20 @@ export default function App() {
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}
         stats={stats}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onUpdateSettings={handleUpdateSettings}
+        isPractice={isPractice}
+        onTogglePractice={() => {
+          setIsSettingsOpen(false);
+          isPractice ? handleStartDaily() : handleStartPractice();
+        }}
+        onOpenHelp={() => setIsHowToPlayOpen(true)}
+        onOpenDebug={() => setIsDebugOpen(true)}
       />
 
       {/* Solvability Debug Panel (behind ?debug=1) */}

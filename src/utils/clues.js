@@ -31,6 +31,16 @@ export function getTimePhaseHuman(timeStr, isDay) {
   try {
     const dt = new Date(timeStr);
     const h = dt.getHours();
+
+    // Polar night check (daytime hour but zero daylight)
+    if (!isDay && h >= 9 && h <= 15) {
+      return 'Polar night darkness';
+    }
+    // Midnight sun check (night hour but daylight present)
+    if (isDay && (h >= 22 || h <= 3)) {
+      return 'Midnight sun daylight';
+    }
+
     if (h >= 4 && h < 7) return 'Early morning dawn';
     if (h >= 7 && h < 11) return 'Morning sun';
     if (h >= 11 && h < 14) return 'Midday noon';
@@ -80,19 +90,19 @@ export function generateClues(targetCity, weatherSnapshot) {
       text: `Located in ${targetCity.continent}.`,
       icon: 'globe'
     },
-    // Clue 3: Unlocks after 3 wrong guesses
+    // Clue 3: Unlocks after 3 wrong guesses (Atmospheric telemetry)
     {
       level: 3,
+      label: 'Wind & pressure',
+      text: `${Math.round(current.wind_speed_10m)} km/h breeze. ${Math.round(current.surface_pressure || 1013)} hPa.`,
+      icon: 'wind'
+    },
+    // Clue 4: Unlocks after 4 wrong guesses (Final geographic clue)
+    {
+      level: 4,
       label: 'Country initial',
       text: `Country starts with ${targetCity.country.charAt(0).toUpperCase()}.`,
       icon: 'map-pin'
-    },
-    // Clue 4: Unlocks after 4 wrong guesses
-    {
-      level: 4,
-      label: 'Wind & atmosphere',
-      text: `${Math.round(current.wind_speed_10m)} km/h breeze. ${Math.round(current.surface_pressure || 1013)} hPa.`,
-      icon: 'wind'
     }
   ];
 }
