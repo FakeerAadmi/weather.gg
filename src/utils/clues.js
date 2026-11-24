@@ -1,23 +1,18 @@
 import { getTemperatureFeel, getTimeOfDayPhase } from '../engine/weatherCodes';
 
 /**
- * Returns the fog density based on wrong guess count
+ * Returns temperature band and color token based on temperature in Celsius
  */
-export function getFogDensityForGuessCount(wrongCount, isComplete = false) {
-  if (isComplete) return 0.0;
-  switch (wrongCount) {
-    case 0: return 0.90;
-    case 1: return 0.65;
-    case 2: return 0.44;
-    case 3: return 0.25;
-    case 4: return 0.12;
-    case 5: return 0.04;
-    default: return 0.0;
-  }
+export function getTemperatureBand(tempC) {
+  if (tempC <= 0) return { band: 'freezing', label: 'Freezing', color: 'var(--temp-freezing)' };
+  if (tempC <= 10) return { band: 'cold', label: 'Cold', color: 'var(--temp-cold)' };
+  if (tempC <= 20) return { band: 'mild', label: 'Mild', color: 'var(--temp-mild)' };
+  if (tempC <= 28) return { band: 'warm', label: 'Warm', color: 'var(--temp-warm)' };
+  return { band: 'hot', label: 'Hot', color: 'var(--temp-hot)' };
 }
 
 /**
- * Generates all 5 progressive clues based on target city and weather snapshot
+ * Generates the 5 progressive Clue Ladder v2 entries
  */
 export function generateClues(targetCity, weatherSnapshot) {
   if (!targetCity || !weatherSnapshot || !weatherSnapshot.current) {
@@ -28,8 +23,9 @@ export function generateClues(targetCity, weatherSnapshot) {
   const tempC = Math.round(current.temperature_2m);
   const feelsLikeC = Math.round(current.apparent_temperature ?? current.temperature_2m);
   const feelWord = getTemperatureFeel(tempC, feelsLikeC, current.weather_code);
+  const tempBand = getTemperatureBand(tempC);
 
-  // Format local time
+  // Format local solar time
   let localTimeFormatted = "Unknown";
   try {
     if (current.time) {
@@ -48,43 +44,48 @@ export function generateClues(targetCity, weatherSnapshot) {
   return [
     {
       level: 1,
+      category: "THERMAL",
       title: "Atmospheric Temperature",
-      category: "Thermal Feel",
-      icon: "Thermometer",
+      glyph: "thermometer",
       text: `${feelWord} (${tempC}°C / ${Math.round(tempC * 9/5 + 32)}°F)`,
-      detail: `Feels like ${feelsLikeC}°C with ${current.relative_humidity_2m || 50}% humidity`
+      detail: `Apparent ${feelsLikeC}°C • ${current.relative_humidity_2m || 50}% humidity`,
+      tint: tempBand.color
     },
     {
       level: 2,
-      title: "Solar Position & Hemisphere",
-      category: "Celestial Coordinates",
-      icon: "Compass",
+      category: "SOLAR & HEMISPHERE",
+      title: "Solar Position",
+      glyph: current.is_day ? "sun" : "moon",
       text: `${hemisphere} • ${timePhase}`,
-      detail: `Local time approx. ${localTimeFormatted}`
+      detail: `Local time approx. ${localTimeFormatted}`,
+      tint: tempBand.color
     },
     {
       level: 3,
-      title: "Global Region",
-      category: "Continent",
-      icon: "Globe",
+      category: "CONTINENT",
+      title: "Geographic Region",
+      glyph: "globe",
       text: `Located in ${targetCity.continent}`,
-      detail: `Latitude: ${Math.abs(targetCity.lat).toFixed(1)}°${targetCity.lat >= 0 ? 'N' : 'S'}`
+      detail: `Latitude: ${Math.abs(targetCity.lat).toFixed(1)}°${targetCity.lat >= 0 ? 'N' : 'S'}`,
+      tint: tempBand.color
     },
     {
       level: 4,
-      title: "Territory Origin",
-      category: "Country Initial",
-      icon: "MapPin",
+      category: "COUNTRY INITIAL",
+      title: "Territory",
+      glyph: "map-pin",
       text: `Country starts with "${targetCity.country.charAt(0)}"`,
-      detail: `${targetCity.country.length} letters in country name`
+      detail: `${targetCity.country.length} letters in country name`,
+      tint: tempBand.color
     },
     {
       level: 5,
+      category: "WIND & PRESSURE",
       title: "Barometric Dynamics",
-      category: "Wind & Pressure",
-      icon: "Wind",
-      text: `Gales of ${Math.round(current.wind_speed_10m)} km/h • ${Math.round(current.surface_pressure || 1013)} hPa`,
-      detail: `Cloud cover at ${current.cloud_cover}%`
+      glyph: "wind",
+      text: `Wind ${Math.round(current.wind_speed_10m)} km/h • ${Math.round(current.surface_pressure || 1013)} hPa`,
+      detail: `Cloud cover ${current.cloud_cover}%`,
+      tint: tempBand.color
     }
   ];
 }

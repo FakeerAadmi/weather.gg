@@ -1,0 +1,20 @@
+{
+  "name": "AETHER // weather.gg",
+  "short_name": "AETHER",
+  "description": "Daily atmospheric deduction game. The atmosphere is your board.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c0e12",
+  "theme_color": "#0c0e12",
+  "categories": ["games", "puzzle", "weather"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

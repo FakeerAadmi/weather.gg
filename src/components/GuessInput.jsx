@@ -1,8 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Send, X, MapPin } from 'lucide-react';
+import { GlyphSearch, GlyphClose, GlyphMapPin, GlyphArrowRight } from './Glyphs';
 import cities from '../data/cities.json';
+import { sound } from '../utils/sound';
+import { vibrateTap } from '../utils/haptics';
 
-export default function GuessInput({ onGuess, disabled = false, guessedCityIds = [] }) {
+export default function GuessInput({
+  onGuess,
+  disabled = false,
+  guessedCityIds = [],
+  isShaking = false
+}) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -24,14 +31,14 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
       const nameMatch = c.name.toLowerCase().includes(trimmed);
       const countryMatch = c.country.toLowerCase().includes(trimmed);
       return nameMatch || countryMatch;
-    }).slice(0, 7); // Show top 7 matches
+    }).slice(0, 6);
 
     setSuggestions(matches);
     setSelectedIndex(matches.length > 0 ? 0 : -1);
     setIsOpen(matches.length > 0);
   }, [query, guessedCityIds]);
 
-  // Handle outside click or tap to close dropdown
+  // Handle outside click/tap to close dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -52,6 +59,8 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
 
   const handleSelectCity = (city) => {
     if (!city || disabled) return;
+    vibrateTap();
+    sound.playTap();
     onGuess(city);
     setQuery('');
     setSuggestions([]);
@@ -83,34 +92,39 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
   };
 
   return (
-    <div className="relative w-full max-w-lg mx-auto px-3 sm:px-4 z-20 pointer-events-auto">
-      {/* Autocomplete Dropdown (pops UP above the input) */}
+    <div className="relative w-full max-w-lg mx-auto px-3 sm:px-4 z-20">
+      {/* Upward Autocomplete Dropdown */}
       {isOpen && suggestions.length > 0 && (
         <div
           ref={dropdownRef}
-          className="absolute bottom-full mb-2 left-3 right-3 sm:left-4 sm:right-4 max-h-[35dvh] overflow-y-auto rounded-2xl glass-card p-1.5 shadow-2xl z-30 animate-slide-up"
+          className="absolute bottom-full mb-2 left-3 right-3 sm:left-4 sm:right-4 max-h-[35dvh] overflow-y-auto rounded-lg border border-[var(--border-strong)] bg-[var(--bg-surface)] p-1 shadow-xl z-30"
+          role="listbox"
         >
           {suggestions.map((city, idx) => {
             const isSelected = idx === selectedIndex;
             return (
               <div
                 key={city.id}
+                role="option"
+                aria-selected={isSelected}
                 onMouseEnter={() => setSelectedIndex(idx)}
                 onClick={() => handleSelectCity(city)}
-                className={`flex items-center justify-between px-3 py-2 sm:py-2.5 rounded-xl cursor-pointer text-xs sm:text-sm font-sans transition-colors ${
+                className={`flex items-center justify-between px-3 py-2.5 rounded-md cursor-pointer text-xs sm:text-sm font-sans transition-colors touch-target ${
                   isSelected
-                    ? 'bg-white/20 text-white font-medium'
-                    : 'text-white/80 hover:bg-white/10'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] font-medium'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]'
                 }`}
               >
                 <div className="flex items-center gap-2 truncate min-w-0 pr-1">
-                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span className="font-semibold truncate">{city.name}</span>
-                  <span className="text-[11px] text-white/50 font-mono truncate">
+                  <GlyphMapPin className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />
+                  <span className="font-semibold text-[var(--text-primary)] truncate">
+                    {city.name}
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)] font-mono truncate">
                     {city.country}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono text-white/40 uppercase shrink-0 ml-1">
+                <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase shrink-0 ml-1">
                   {city.continent}
                 </span>
               </div>
@@ -119,10 +133,16 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
         </div>
       )}
 
-      {/* Main Low-Pinned Input Pill */}
-      <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-full glass-pill border border-white/20 transition-all min-w-0">
-        <div className="pl-2.5 sm:pl-3 text-white/50 shrink-0">
-          <Search className="w-4 h-4" />
+      {/* Main Pinned Input Container */}
+      <div
+        className={`flex items-center gap-1.5 p-1 rounded-lg border bg-[var(--bg-surface)] transition-all min-w-0 touch-target ${
+          isShaking
+            ? 'animate-shake border-[var(--status-error)]'
+            : 'border-[var(--border-subtle)] focus-within:border-[var(--border-active)]'
+        }`}
+      >
+        <div className="pl-3 text-[var(--text-muted)] shrink-0">
+          <GlyphSearch className="w-4 h-4" />
         </div>
 
         <input
@@ -133,12 +153,14 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => {
+            sound.unlock();
             if (suggestions.length > 0) setIsOpen(true);
           }}
-          placeholder={disabled ? "Game completed" : "Identify this city..."}
-          className="w-full min-w-0 bg-transparent px-1.5 py-1.5 sm:py-2 text-xs sm:text-sm text-white placeholder-white/40 focus:outline-none font-sans"
+          placeholder={disabled ? "Game completed" : "Enter a world city..."}
+          className="w-full min-w-0 bg-transparent px-2 py-2 text-xs sm:text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none font-sans"
           autoComplete="off"
           spellCheck="false"
+          aria-label="Guess a city"
         />
 
         {query && (
@@ -150,10 +172,10 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
               setIsOpen(false);
               inputRef.current?.focus();
             }}
-            className="p-1 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+            className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors shrink-0"
             aria-label="Clear input"
           >
-            <X className="w-3.5 h-3.5" />
+            <GlyphClose className="w-4 h-4" />
           </button>
         )}
 
@@ -167,14 +189,14 @@ export default function GuessInput({ onGuess, disabled = false, guessedCityIds =
               handleSelectCity(suggestions[0]);
             }
           }}
-          className={`px-3.5 sm:px-4 py-2 rounded-full font-mono text-xs font-semibold tracking-wider flex items-center gap-1.5 shrink-0 transition-all ${
+          className={`px-4 py-2 rounded-md font-mono text-xs font-semibold tracking-wider flex items-center gap-1.5 shrink-0 touch-target transition-all ${
             disabled || suggestions.length === 0
-              ? 'opacity-40 cursor-not-allowed bg-white/10 text-white/50'
-              : 'bg-gradient-to-r from-sky-400 to-indigo-500 text-white shadow-lg shadow-sky-500/25 hover:brightness-110 active:scale-95'
+              ? 'opacity-40 cursor-not-allowed bg-[var(--bg-subtle)] text-[var(--text-muted)]'
+              : 'bg-[var(--accent)] text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] active:scale-95'
           }`}
         >
-          <span>Guess</span>
-          <Send className="w-3 h-3" />
+          <span>GUESS</span>
+          <GlyphArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Award, Flame, Target, TrendingUp, Calendar } from 'lucide-react';
+import { GlyphClose, GlyphBarChart } from './Glyphs';
 
 export default function StatsModal({ isOpen, onClose, stats }) {
   if (!isOpen) return null;
@@ -12,79 +12,87 @@ export default function StatsModal({ isOpen, onClose, stats }) {
   const maxFreq = Math.max(1, ...Object.values(distribution));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-md bg-[#0b101c]/95 border border-white/15 rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stats-heading"
+    >
+      <div className="relative w-full max-w-md rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)]">
+          <div className="flex items-center gap-2">
+            <GlyphBarChart className="w-5 h-5 text-[var(--accent)]" />
+            <h2 id="stats-heading" className="text-base font-bold font-mono tracking-wider text-[var(--text-primary)] uppercase">
+              Statistics
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors touch-target"
+            aria-label="Close statistics"
+          >
+            <GlyphClose className="w-5 h-5" />
+          </button>
+        </div>
 
-        <h3 className="font-heading text-xl font-semibold tracking-wider text-white mb-5 flex items-center gap-2">
-          <Award className="w-5 h-5 text-amber-400" />
-          Expedition Statistics
-        </h3>
-
-        {/* 4 Key Stat Cards */}
-        <div className="grid grid-cols-4 gap-2 mb-6">
-          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
-            <div className="text-xl sm:text-2xl font-bold font-mono text-white">
+        {/* 4 Stat Boxes */}
+        <div className="grid grid-cols-4 gap-2 my-5">
+          <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-center">
+            <div className="text-2xl font-bold font-mono text-[var(--text-primary)]">
               {stats.gamesPlayed}
             </div>
-            <div className="text-[10px] uppercase font-mono text-white/50 mt-0.5">
+            <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] mt-1">
               Played
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
-            <div className="text-xl sm:text-2xl font-bold font-mono text-sky-400">
+          <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-center">
+            <div className="text-2xl font-bold font-mono text-[var(--accent)]">
               {winRate}%
             </div>
-            <div className="text-[10px] uppercase font-mono text-white/50 mt-0.5">
+            <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] mt-1">
               Win Rate
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
-            <div className="text-xl sm:text-2xl font-bold font-mono text-amber-400 flex items-center justify-center gap-1">
+          <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-center">
+            <div className="text-2xl font-bold font-mono text-[var(--text-primary)]">
               {stats.currentStreak}
             </div>
-            <div className="text-[10px] uppercase font-mono text-white/50 mt-0.5">
+            <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] mt-1">
               Streak
             </div>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 text-center">
-            <div className="text-xl sm:text-2xl font-bold font-mono text-indigo-400">
+          <div className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-center">
+            <div className="text-2xl font-bold font-mono text-[var(--text-primary)]">
               {stats.maxStreak}
             </div>
-            <div className="text-[10px] uppercase font-mono text-white/50 mt-0.5">
+            <div className="text-[10px] uppercase font-mono text-[var(--text-muted)] mt-1">
               Max
             </div>
           </div>
         </div>
 
         {/* Guess Distribution Bars */}
-        <div className="mb-4">
-          <div className="text-xs font-mono uppercase tracking-wider text-white/60 mb-3 flex items-center gap-1.5">
-            <TrendingUp className="w-3.5 h-3.5 text-sky-400" />
+        <div className="mb-2">
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--text-primary)] mb-3">
             Guess Distribution
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5 font-mono text-xs">
             {[1, 2, 3, 4, 5, 6].map((guessNum) => {
               const count = distribution[guessNum] || 0;
               const pct = Math.max(8, (count / maxFreq) * 100);
 
               return (
-                <div key={guessNum} className="flex items-center gap-2 text-xs font-mono">
-                  <span className="w-3 text-white/50">{guessNum}</span>
-                  <div className="flex-1 h-5 bg-white/5 rounded-md overflow-hidden flex items-center">
+                <div key={guessNum} className="flex items-center gap-2">
+                  <span className="w-3 text-[var(--text-muted)]">{guessNum}</span>
+                  <div className="flex-1 h-5 bg-[var(--bg-subtle)] rounded overflow-hidden flex items-center">
                     <div
-                      className={`h-full rounded-md flex items-center justify-end px-2 text-[11px] font-bold text-white transition-all duration-500 ${
-                        count > 0 ? 'bg-gradient-to-r from-sky-500 to-indigo-500' : 'bg-transparent text-white/30'
+                      className={`h-full rounded flex items-center justify-end px-2 text-[11px] font-bold text-white transition-all duration-300 ${
+                        count > 0 ? 'bg-[var(--accent)]' : 'bg-transparent text-[var(--text-muted)]'
                       }`}
                       style={{ width: `${pct}%` }}
                     >
@@ -95,12 +103,6 @@ export default function StatsModal({ isOpen, onClose, stats }) {
               );
             })}
           </div>
-        </div>
-
-        {/* Daily schedule note */}
-        <div className="mt-2 pt-4 border-t border-white/10 text-center text-xs font-mono text-white/50 flex items-center justify-center gap-1.5">
-          <Calendar className="w-3.5 h-3.5 text-sky-400" />
-          A new mystery sky emerges each midnight UTC.
         </div>
       </div>
     </div>
