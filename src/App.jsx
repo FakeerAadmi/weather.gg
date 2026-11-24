@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import Header from './components/Header';
-import ClueStack from './components/ClueStack';
-import GuessRows from './components/GuessRows';
-import GuessInput from './components/GuessInput';
-import SettingsModal from './components/SettingsModal';
-import HowToPlayModal from './components/HowToPlayModal';
-import ResultModal from './components/ResultModal';
+import Hub from './components/Hub';
+import ClueDisplay from './components/ClueDisplay';
+import GuessList from './components/GuessList';
+import FloatingInput from './components/FloatingInput';
+import EndTakeover from './components/EndTakeover';
 import StatsModal from './components/StatsModal';
+import HowToPlayModal from './components/HowToPlayModal';
 import SolvabilityDebugPanel from './components/SolvabilityDebugPanel';
 
 import cities from './data/cities.json';
@@ -18,7 +18,7 @@ import { generateClues } from './utils/clues';
 import { loadStats, recordGameCompletion, loadGameState, saveGameState } from './utils/storage';
 import { loadSettings, saveSettings, applySettingsToDOM } from './utils/settings';
 import { sound } from './utils/sound';
-import { vibrateWin, vibrateWrong, vibrateError } from './utils/haptics';
+import { vibrateWin, vibrateWrong, vibrateError, vibrateTap } from './utils/haptics';
 import { validateHardModeGuess } from './utils/hardMode';
 
 const MAX_GUESSES = 6;
@@ -26,6 +26,7 @@ const HAS_SEEN_TUTORIAL_KEY = 'aether_has_seen_tutorial_v2';
 
 export default function App() {
   const [dateStr] = useState(getTodayDateString());
+  const [view, setView] = useState('hub'); // 'hub' | 'game'
   const [isPractice, setIsPractice] = useState(false);
   const [targetData, setTargetData] = useState(() => getDailyCity(getTodayDateString()));
   const [weatherSnapshot, setWeatherSnapshot] = useState(null);
@@ -38,13 +39,12 @@ export default function App() {
   // Game state
   const [guesses, setGuesses] = useState([]);
   const [gameStatus, setGameStatus] = useState('in_progress'); // 'in_progress', 'won', 'lost'
-  const [unlockedCluesCount, setUnlockedCluesCount] = useState(0);
+  const [unlockedCluesCount, setUnlockedCluesCount] = useState(1); // Clue 0 is visible immediately on load
 
   // UI States & Modals
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
-  const [isResultOpen, setIsResultOpen] = useState(false);
+  const [isEndTakeoverOpen, setIsEndTakeoverOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
 
   // Toast / Error banner for Hard Mode violations
@@ -123,9 +123,9 @@ export default function App() {
           setGuesses(saved.guesses);
           setGameStatus(saved.status || 'in_progress');
           const wrongCount = saved.guesses.filter(g => g.distanceKm > 0).length;
-          setUnlockedCluesCount(Math.min(5, wrongCount));
+          setUnlockedCluesCount(Math.min(5, 1 + wrongCount));
           if (saved.status === 'won' || saved.status === 'lost') {
-            setIsResultOpen(true);
+            setIsEndTakeoverOpen(true);
           }
           return;
         }
@@ -134,7 +134,7 @@ export default function App() {
       // Fresh state
       setGuesses([]);
       setGameStatus('in_progress');
-      setUnlockedCluesCount(0);
+      setUnlockedCluesCount(1);
     };
 
     initTarget();
@@ -150,8 +150,18 @@ export default function App() {
     return generateClues(targetData.city, weatherSnapshot);
   }, [targetData.city, weatherSnapshot]);
 
-  const handleUpdateSettings = (partial) => {
-    const updated = { ...settings, ...partial };
+  const handleToggleSound = () => {
+    const nextSound = !settings.sound;
+    const updated = { ...settings, sound: nextSound };
+    setSettings(updated);
+    saveSettings(updated);
+    sound.setEnabled(nextSound);
+  };
+
+  const handleToggleTheme = () => {
+    const currentTheme = settings.theme || 'dark';
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+    const updated = { ...settings, theme: nextTheme };
     setSettings(updated);
     saveSettings(updated);
     applySettingsToDOM(updated);
@@ -218,7 +228,7 @@ export default function App() {
 
       if (!settings.reducedMotion) {
         confetti({
-          particleCount: 80,
+          particleCount: 90,
           spread: 70,
           origin: { y: 0.6 }
         });
@@ -234,26 +244,27 @@ export default function App() {
       }
 
       setTimeout(() => {
-        setIsResultOpen(true);
-      }, 950);
+        setIsEndTakeoverOpen(true);
+      }, 1000);
 
     } else {
-      // WRONG GUESS
-      sound.playWrongGuess();
+      // WRONG GUESS: soft pop + vibration
+      sound.playPop();
       vibrateWrong();
 
       const wrongCount = newGuesses.filter(g => g.distanceKm > 0).length;
-      const nextUnlocked = Math.min(5, wrongCount);
+      const nextUnlocked = Math.min(5, 1 + wrongCount);
       setUnlockedCluesCount(nextUnlocked);
 
-      // Play soft clue reveal sound
+      // Play soft rising clue reveal sound
       setTimeout(() => {
-        sound.playClueReveal();
-      }, 250);
+        sound.playRisingClue();
+      }, 350);
 
       if (newGuesses.length >= MAX_GUESSES) {
         // DEFEAT
         setGameStatus('lost');
+        sound.playLoss();
 
         if (!isPractice) {
           const updatedStats = recordGameCompletion(false, MAX_GUESSES, targetData.dateStr);
@@ -265,8 +276,8 @@ export default function App() {
         }
 
         setTimeout(() => {
-          setIsResultOpen(true);
-        }, 950);
+          setIsEndTakeoverOpen(true);
+        }, 1000);
       } else {
         // Save intermediate
         if (!isPractice) {
@@ -279,21 +290,20 @@ export default function App() {
     }
   };
 
-  // Practice mode toggle
-  const handleTogglePractice = () => {
-    if (isPractice) {
-      setIsPractice(false);
-      setTargetData(getDailyCity(dateStr));
-    } else {
-      setIsPractice(true);
-      const randomCity = getRandomCity(targetData.city?.id);
-      setTargetData({
-        city: randomCity,
-        index: -1,
-        dayNumber: '∞',
-        dateStr: 'practice'
-      });
-    }
+  // Practice mode handler
+  const handleStartPractice = () => {
+    setIsPractice(true);
+    const randomCity = getRandomCity(targetData.city?.id);
+    setTargetData({
+      city: randomCity,
+      index: -1,
+      dayNumber: '∞',
+      dateStr: 'practice'
+    });
+    setGuesses([]);
+    setGameStatus('in_progress');
+    setUnlockedCluesCount(1);
+    setView('game');
   };
 
   const handleNextPracticeCity = () => {
@@ -306,105 +316,150 @@ export default function App() {
     });
     setGuesses([]);
     setGameStatus('in_progress');
-    setUnlockedCluesCount(0);
-    setIsResultOpen(false);
+    setUnlockedCluesCount(1);
+    setIsEndTakeoverOpen(false);
   };
 
+  const handleStartDaily = () => {
+    setIsPractice(false);
+    setTargetData(getDailyCity(dateStr));
+    setView('game');
+  };
+
+  // RENDER: Hub View
+  if (view === 'hub') {
+    return (
+      <div className="w-full h-full">
+        <Hub
+          dayNumber={targetData.dayNumber}
+          hasPlayedDaily={guesses.length > 0}
+          dailyCompleted={!isPractice && (gameStatus === 'won' || gameStatus === 'lost')}
+          onPlayDaily={handleStartDaily}
+          onPlayPractice={handleStartPractice}
+          onOpenStats={() => setIsStatsOpen(true)}
+          onOpenHelp={() => setIsHowToPlayOpen(true)}
+        />
+
+        <StatsModal
+          isOpen={isStatsOpen}
+          onClose={() => setIsStatsOpen(false)}
+          stats={stats}
+        />
+
+        <HowToPlayModal
+          isOpen={isHowToPlayOpen}
+          onClose={() => setIsHowToPlayOpen(false)}
+        />
+      </div>
+    );
+  }
+
+  // RENDER: Game View
   return (
     <div className="fixed inset-0 w-full h-[100dvh] flex flex-col overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)] select-none">
-      {/* 1. Header */}
+      {/* 1. Minimal Header */}
       <Header
         dayNumber={targetData.dayNumber}
         isPractice={isPractice}
-        unlockedCluesCount={unlockedCluesCount}
-        totalClues={clues.length}
+        guessesCount={guesses.length}
+        maxGuesses={MAX_GUESSES}
+        soundEnabled={settings.sound}
+        onToggleSound={handleToggleSound}
+        theme={settings.theme}
+        onToggleTheme={handleToggleTheme}
         onOpenStats={() => setIsStatsOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHelp={() => setIsHowToPlayOpen(true)}
+        onReturnHub={() => setView('hub')}
       />
 
       {/* Weather Fallback or Loading Notice */}
       {weatherError && (
-        <div className="bg-[var(--status-warning)] text-black text-xs font-mono py-1 px-4 text-center">
+        <div className="bg-[var(--status-warning)] text-black text-xs py-1 px-4 text-center">
           {weatherError}
         </div>
       )}
 
       {/* Toast Alert for Hard Mode violations */}
       {toastMessage && (
-        <div className="fixed top-14 inset-x-4 z-40 flex justify-center pointer-events-none">
-          <div className="px-4 py-2 rounded-md bg-[var(--bg-elevated)] border border-[var(--status-error)] text-[var(--text-primary)] text-xs font-mono font-semibold shadow-xl">
+        <div className="fixed top-16 inset-x-4 z-40 flex justify-center pointer-events-none">
+          <div className="px-4 py-2 rounded-full surface-pill border border-[var(--status-error)] text-[var(--text-primary)] text-xs font-medium shadow-xl">
             {toastMessage}
           </div>
         </div>
       )}
 
-      {/* 2. Scrollable Middle Section: Clue Stack & Guess Rows */}
-      <main className="flex-1 overflow-y-auto px-2 py-3 flex flex-col justify-start">
+      {/* 2. Scrollable Middle Section: Clue Stack & Borderless Guess Rows */}
+      <main className="flex-1 overflow-y-auto px-2 py-4 flex flex-col justify-start">
         {loadingWeather ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-xs font-mono text-[var(--text-muted)] space-y-2">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-xs text-[var(--text-muted)] space-y-3">
             <div className="w-5 h-5 border-2 border-[var(--border-subtle)] border-t-[var(--accent)] rounded-full animate-spin" />
-            <div>Fetching real-time atmospheric telemetry...</div>
+            <div className="text-sm font-medium">Reading the atmosphere...</div>
           </div>
         ) : (
           <>
-            {/* Clue Stack */}
-            <ClueStack
+            {/* Clue Display (Clue 0 immediately visible, newest largest, faint skeleton for unrevealed) */}
+            <ClueDisplay
               clues={clues}
               unlockedCount={unlockedCluesCount}
             />
 
-            {/* Guess Rows */}
-            <GuessRows
+            {/* Guess Rows (Borderless, rolling numbers, spring compass arrow, proximity %) */}
+            <GuessList
               guesses={guesses}
-              maxGuesses={MAX_GUESSES}
-              isGameOver={gameStatus !== 'in_progress'}
             />
           </>
         )}
       </main>
 
       {/* 3. Bottom Pinned Section */}
-      <footer
-        className="w-full transition-transform duration-150 ease-out z-20"
-        style={{
-          transform: `translateY(-${keyboardOffset}px)`,
-          paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))'
-        }}
-      >
-        {gameStatus === 'in_progress' ? (
-          <GuessInput
-            onGuess={handleGuess}
-            disabled={loadingWeather}
-            guessedCityIds={guesses.map(g => g.city.id)}
-            isShaking={isShaking}
-          />
-        ) : (
+      {gameStatus === 'in_progress' ? (
+        <FloatingInput
+          onGuess={handleGuess}
+          disabled={loadingWeather}
+          guessedCityIds={guesses.map(g => g.city.id)}
+          keyboardOffset={keyboardOffset}
+        />
+      ) : (
+        <footer
+          className="w-full transition-transform duration-150 ease-out z-20"
+          style={{
+            transform: `translateY(-${keyboardOffset}px)`,
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))'
+          }}
+        >
           <div className="px-4 max-w-lg mx-auto w-full">
             <button
-              onClick={() => setIsResultOpen(true)}
-              className="w-full py-3 rounded-lg bg-[var(--accent)] text-[var(--accent-contrast)] font-mono text-xs font-bold tracking-wider hover:bg-[var(--accent-hover)] transition-all touch-target active:scale-95"
+              onClick={() => {
+                sound.playTap();
+                vibrateTap();
+                setIsEndTakeoverOpen(true);
+              }}
+              className="w-full h-12 rounded-full surface-pill text-[var(--text-primary)] font-semibold text-sm hover:border-[var(--border-strong)] transition-all touch-target active:scale-[0.98] shadow-sm flex items-center justify-center"
             >
-              VIEW RESULTS & SHARE BULLETIN
+              View summary & share bulletin
             </button>
           </div>
-        )}
-      </footer>
+        </footer>
+      )}
+
+      {/* End Game Takeover Screen */}
+      <EndTakeover
+        isOpen={isEndTakeoverOpen}
+        onClose={() => setIsEndTakeoverOpen(false)}
+        isWon={gameStatus === 'won'}
+        city={targetData.city}
+        weather={weatherSnapshot}
+        guesses={guesses}
+        dayNumber={targetData.dayNumber}
+        isPractice={isPractice}
+        streak={stats.currentStreak}
+        onPlayAgain={isPractice ? handleNextPracticeCity : handleStartPractice}
+      />
 
       {/* Modals & Dialogs */}
       <HowToPlayModal
         isOpen={isHowToPlayOpen}
         onClose={() => setIsHowToPlayOpen(false)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onUpdateSettings={handleUpdateSettings}
-        isPractice={isPractice}
-        onTogglePractice={handleTogglePractice}
-        onOpenDebug={() => setIsDebugOpen(true)}
       />
 
       <StatsModal
@@ -413,18 +468,7 @@ export default function App() {
         stats={stats}
       />
 
-      <ResultModal
-        isOpen={isResultOpen}
-        onClose={() => setIsResultOpen(false)}
-        isWon={gameStatus === 'won'}
-        city={targetData.city}
-        weather={weatherSnapshot}
-        guesses={guesses}
-        dayNumber={targetData.dayNumber}
-        isPractice={isPractice}
-        onPlayAgain={isPractice ? handleNextPracticeCity : handleTogglePractice}
-      />
-
+      {/* Solvability Debug Panel (behind ?debug=1) */}
       <SolvabilityDebugPanel
         isOpen={isDebugOpen}
         onClose={() => setIsDebugOpen(false)}

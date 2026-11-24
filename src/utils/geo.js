@@ -2,6 +2,14 @@
  * Geospatial distance & bearing calculations
  */
 
+export const MAX_EARTH_DISTANCE_KM = 20015;
+
+export function calculateProximity(distanceKm) {
+  if (distanceKm === 0) return 100;
+  const pct = Math.round(100 - (distanceKm / MAX_EARTH_DISTANCE_KM) * 100);
+  return Math.max(0, Math.min(99, pct));
+}
+
 export function toRadians(degrees) {
   return (degrees * Math.PI) / 180;
 }
