@@ -9,6 +9,7 @@ import EndTakeover from './components/EndTakeover';
 import StatsModal from './components/StatsModal';
 import HowToPlayModal from './components/HowToPlayModal';
 import SettingsModal from './components/SettingsModal';
+import AtmosphericAmbient from './components/AtmosphericAmbient';
 import SolvabilityDebugPanel from './components/SolvabilityDebugPanel';
 
 import cities from './data/cities.json';
@@ -50,6 +51,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isEndTakeoverOpen, setIsEndTakeoverOpen] = useState(false);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
+  const [dailyPercentile, setDailyPercentile] = useState(null);
 
   // Toast / Error banner for Hard Mode violations
   const [toastMessage, setToastMessage] = useState(null);
@@ -216,6 +218,10 @@ export default function App() {
       direction = getBearingDirection(bearing);
       isMatch = backendResult.match;
 
+      if (backendResult.percentile !== undefined) {
+        setDailyPercentile(backendResult.percentile);
+      }
+
       if (isMatch && backendResult.revealedCity) {
         setTargetData(prev => ({ ...prev, city: backendResult.revealedCity }));
         if (backendResult.weather) setWeatherSnapshot(backendResult.weather);
@@ -334,6 +340,7 @@ export default function App() {
     setGuesses([]);
     setGameStatus('in_progress');
     setUnlockedCluesCount(1);
+    setIsEndTakeoverOpen(false);
     setView('game');
   };
 
@@ -388,6 +395,9 @@ export default function App() {
   // RENDER: Game View
   return (
     <div className="fixed inset-0 w-full h-[100dvh] flex flex-col overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)] select-none">
+      {/* Ambient Atmospheric Procedural Lighting */}
+      <AtmosphericAmbient weather={weatherSnapshot} />
+
       {/* 1. Minimal Header */}
       <Header
         dayNumber={targetData.dayNumber}
@@ -485,6 +495,7 @@ export default function App() {
         dayNumber={targetData.dayNumber}
         isPractice={isPractice}
         streak={stats.currentStreak}
+        percentile={dailyPercentile}
         onPlayAgain={isPractice ? handleNextPracticeCity : handleStartPractice}
       />
 

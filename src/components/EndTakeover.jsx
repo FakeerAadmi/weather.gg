@@ -21,6 +21,7 @@ export default function EndTakeover({
   dayNumber,
   isPractice,
   streak = 0,
+  percentile,
   onPlayAgain
 }) {
   const [copied, setCopied] = useState(false);
@@ -154,6 +155,14 @@ export default function EndTakeover({
             <div className="text-xs text-[var(--text-muted)] mt-0.5">accuracy</div>
           </div>
         </div>
+
+        {/* Global Percentile Ranking */}
+        {percentile !== undefined && percentile !== null && isWon && (
+          <div className="mt-4 px-4 py-2.5 rounded-xl surface-pill text-xs font-semibold text-[var(--accent)] flex items-center justify-between tabular">
+            <span>Global benchmark</span>
+            <span>Top {Math.max(1, 100 - percentile)}% today (beat {percentile}% of solvers)</span>
+          </div>
+        )}
       </div>
 
       {/* Bottom Actions */}
@@ -167,15 +176,23 @@ export default function EndTakeover({
         </button>
 
         {!isPractice ? (
-          <div className="text-center text-xs text-[var(--text-muted)] tabular py-1">
-            Next mystery in {countdown}
+          <div className="flex flex-col items-center space-y-2.5 pt-1">
+            <div className="text-center text-xs text-[var(--text-muted)] tabular">
+              Next daily mystery in {countdown}
+            </div>
+            <button
+              onClick={onPlayAgain}
+              className="w-full h-12 rounded-full surface-pill text-[var(--text-primary)] text-sm font-semibold hover:bg-[var(--bg-surface-elevated)] transition-colors touch-target"
+            >
+              Play practice flight
+            </button>
           </div>
         ) : (
           <button
             onClick={onPlayAgain}
             className="w-full h-12 rounded-full surface-pill text-[var(--text-primary)] text-sm font-semibold hover:bg-[var(--bg-surface-elevated)] transition-colors touch-target"
           >
-            Play another city
+            Practice another flight
           </button>
         )}
       </div>

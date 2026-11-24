@@ -9,6 +9,11 @@ import {
   recordGlobalWin,
   recordGlobalLoss
 } from './puzzle.js';
+import {
+  getOrCreatePlayer,
+  recordPlayerDailyResult,
+  getDailySummary
+} from './db.js';
 import { calculateDistanceKm, calculateBearing, calculateProximity } from './geo.js';
 import { fetchWeatherForCity } from './weather.js';
 import { generateClues, City, WeatherSnapshot } from './clues.js';
@@ -58,11 +63,12 @@ app.get('/api/puzzle/today', async (c) => {
   }
 });
 
-// 3. Daily Guess Evaluation (Authoritative secret comparison)
+// 3. Daily Guess Evaluation (Authoritative secret comparison with percentile ranking)
 app.post('/api/guess', async (c) => {
   try {
-    const body = await c.req.json() as { guessCityId: string; guessCount?: number };
+    const body = await c.req.json() as { guessCityId: string; guessCount?: number; playerId?: string };
     const { guessCityId, guessCount = 1 } = body;
+    const playerId = c.req.header('x-player-token') || body.playerId || 'anonymous';
 
     if (!guessCityId) {
       return c.json({ error: 'Missing guessCityId' }, 400);
@@ -95,8 +101,17 @@ app.post('/api/guess', async (c) => {
 
     if (isMatch) {
       recordGlobalWin(guessCount);
+      const record = recordPlayerDailyResult({
+        playerId,
+        dateStr: daily.dateStr,
+        dayNumber: daily.dayNumber,
+        isWon: true,
+        guessCount,
+        guesses: [],
+        completedAt: Date.now()
+      });
 
-      // VICTORY: Reveal target city and complete weather telemetry
+      // VICTORY: Reveal target city, weather telemetry, and daily percentile rank
       return c.json({
         match: true,
         distanceKm: 0,
@@ -104,18 +119,30 @@ app.post('/api/guess', async (c) => {
         proximity: 100,
         revealedCity: targetCity,
         weather: daily.weather,
-        allClues: daily.clues
+        allClues: daily.clues,
+        percentile: record.percentile,
+        totalPlayersToday: record.totalPlayersToday,
+        playerProfile: record.player
       });
     }
 
     // WRONG GUESS: Unlock next progressive clue
-    // guessCount 1 unlocks clue index 1, etc.
     const nextClueIndex = Math.min(daily.clues.length - 1, guessCount);
     const nextClue = daily.clues[nextClueIndex];
 
     const isGameOver = guessCount >= 6;
+    let endResultRecord: any = null;
     if (isGameOver) {
       recordGlobalLoss();
+      endResultRecord = recordPlayerDailyResult({
+        playerId,
+        dateStr: daily.dateStr,
+        dayNumber: daily.dayNumber,
+        isWon: false,
+        guessCount: 6,
+        guesses: [],
+        completedAt: Date.now()
+      });
     }
 
     return c.json({
@@ -126,7 +153,13 @@ app.post('/api/guess', async (c) => {
       nextClue,
       unlockedCluesCount: nextClueIndex + 1,
       isGameOver,
-      ...(isGameOver ? { revealedCity: targetCity, weather: daily.weather } : {})
+      ...(isGameOver ? {
+        revealedCity: targetCity,
+        weather: daily.weather,
+        percentile: endResultRecord?.percentile ?? 10,
+        totalPlayersToday: endResultRecord?.totalPlayersToday ?? 1,
+        playerProfile: endResultRecord?.player
+      } : {})
     });
   } catch (err: any) {
     console.error('Error handling guess:', err);
@@ -234,7 +267,26 @@ app.post('/api/practice/guess', async (c) => {
   }
 });
 
-// 5. Global Stats Endpoint
+// 5. Global Stats & Daily Summary Endpoints
+app.get('/api/daily/summary', async (c) => {
+  const daily = await getOrLoadDailyPuzzle();
+  const summary = getDailySummary(daily.dateStr);
+  return c.json(summary);
+});
+
+app.post('/api/player/sync', async (c) => {
+  try {
+    const body = await c.req.json() as { playerId: string };
+    if (!body.playerId) {
+      return c.json({ error: 'Missing playerId' }, 400);
+    }
+    const player = getOrCreatePlayer(body.playerId);
+    return c.json(player);
+  } catch (err: any) {
+    return c.json({ error: 'Failed to sync player profile' }, 500);
+  }
+});
+
 app.get('/api/stats', (c) => {
   const winRate =
     globalStats.gamesPlayed > 0
