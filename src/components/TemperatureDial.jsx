@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { sound } from '../utils/sound';
 import { vibrateTap } from '../utils/haptics';
@@ -15,9 +15,9 @@ export function getThermalDescription(c) {
   if (c <= 0) return 'Freezing frost';
   if (c <= 7) return 'Cold winter air';
   if (c <= 14) return 'Cool crisp breeze';
-  if (c <= 20) return 'Mild temperate';
+  if (c <= 20) return 'Mild temperate air';
   if (c <= 26) return 'Warm comfortable';
-  if (c <= 32) return 'Very warm summer';
+  if (c <= 32) return 'Very warm summer air';
   return 'Hot intense heat';
 }
 
@@ -25,17 +25,24 @@ export function getThermalColor(c) {
   // -25 to +45 mapped to 0 to 1
   const t = Math.max(0, Math.min(1, (c - MIN_TEMP_C) / (MAX_TEMP_C - MIN_TEMP_C)));
   if (t < 0.25) return '#38bdf8'; // Ice blue
-  if (t < 0.45) return '#60a5fa'; // Blue
+  if (t < 0.45) return '#2dd4bf'; // Teal
   if (t < 0.65) return '#34d399'; // Mild green
   if (t < 0.8) return '#fbbf24';  // Warm amber
-  return '#f87171';              // Coral red
+  if (t < 0.9) return '#f97316';  // Orange
+  return '#ef4444';              // Crimson red only at extreme right
 }
+
+// Fixed full-spectrum gradient anchored strictly across the entire track from -25°C to +45°C
+const FULL_SPECTRUM_GRADIENT =
+  'linear-gradient(90deg, #38bdf8 0%, #22d3ee 18%, #2dd4bf 35%, #34d399 52%, #fbbf24 72%, #f97316 86%, #ef4444 100%)';
+
+const GRADUATION_TICKS = [-20, -10, 0, 10, 20, 30, 40];
 
 export default function TemperatureDial({
   valueC,
   onChange,
   disabled = false,
-  actualTempC = null, // revealed on lock in
+  actualTempC = null,
   unit = 'C',
   onToggleUnit
 }) {
@@ -101,9 +108,9 @@ export default function TemperatureDial({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col items-center select-none py-2">
-      {/* 1. Big Odometer-Style Temperature Readout */}
-      <div className="flex flex-col items-center mb-6">
+    <div className="w-full max-w-md mx-auto flex flex-col items-center select-none py-1">
+      {/* 1. Large Odometer Temperature Readout */}
+      <div className="flex flex-col items-center mb-5">
         <div className="flex items-baseline gap-1">
           <span
             className="text-6xl sm:text-7xl font-bold tracking-[-0.04em] tabular transition-colors duration-200"
@@ -114,7 +121,7 @@ export default function TemperatureDial({
           <button
             onClick={onToggleUnit}
             disabled={disabled}
-            className="text-2xl sm:text-3xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-1 p-1"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors ml-1 p-1 touch-target"
             title="Toggle °C / °F"
           >
             {unitSymbol}
@@ -122,14 +129,14 @@ export default function TemperatureDial({
         </div>
 
         {/* Ambient feeling description */}
-        <div className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-1">
+        <div className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
           {getThermalDescription(valueC)}
         </div>
       </div>
 
       {/* 2. Tactile Linear Dial Slider */}
-      <div className="w-full px-2 relative mb-6">
-        {/* Track wrapper */}
+      <div className="w-full px-4 relative mb-7">
+        {/* Interactive Track Area */}
         <div
           ref={trackRef}
           onPointerDown={handlePointerDown}
@@ -137,61 +144,85 @@ export default function TemperatureDial({
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           className={`relative w-full h-12 flex items-center cursor-pointer touch-none ${
-            disabled ? 'cursor-default opacity-85' : ''
+            disabled ? 'cursor-default opacity-90' : ''
           }`}
         >
-          {/* Background Track Line */}
-          <div className="w-full h-2 rounded-full bg-[var(--bg-surface-elevated)] overflow-hidden relative border border-[var(--border-hairline)]">
-            {/* Thermal Gradient Fill */}
+          {/* Base Background Track (Muted full spectrum) */}
+          <div className="w-full h-3 rounded-full bg-[var(--bg-surface-elevated)] overflow-hidden relative border border-[var(--border-subtle)]">
+            {/* Faint spectrum guide across 100% width */}
             <div
-              className="absolute inset-y-0 left-0 transition-all duration-75"
+              className="absolute inset-0 opacity-20"
+              style={{ background: FULL_SPECTRUM_GRADIENT }}
+            />
+
+            {/* Active revealed gradient: strictly reveals the fixed spectrum up to the thumb percentage */}
+            <div
+              className="absolute inset-0 transition-[clip-path] duration-75"
               style={{
-                width: `${pct}%`,
-                background: `linear-gradient(90deg, #38bdf8 0%, #34d399 50%, #f87171 100%)`
+                background: FULL_SPECTRUM_GRADIENT,
+                clipPath: `inset(0 ${100 - pct}% 0 0 round 9999px)`
               }}
             />
           </div>
 
-          {/* Graduation Ticks (-20, -10, 0, 10, 20, 30, 40) */}
-          <div className="absolute inset-x-0 top-7 flex justify-between pointer-events-none px-1 text-[10px] text-[var(--text-muted)] font-medium tabular">
-            <span>-20°</span>
-            <span>-10°</span>
-            <span>0°</span>
-            <span>10°</span>
-            <span>20°</span>
-            <span>30°</span>
-            <span>40°</span>
+          {/* Precision Graduation Ticks & Labels: mathematically aligned with exact degree positions */}
+          <div className="absolute inset-x-0 top-8 pointer-events-none h-6">
+            {GRADUATION_TICKS.map((deg) => {
+              const tickPct = ((deg - MIN_TEMP_C) / (MAX_TEMP_C - MIN_TEMP_C)) * 100;
+              const isPast = deg <= valueC;
+
+              return (
+                <div
+                  key={deg}
+                  className="absolute -translate-x-1/2 flex flex-col items-center"
+                  style={{ left: `${tickPct}%` }}
+                >
+                  <div
+                    className={`w-[1px] h-1.5 transition-colors ${
+                      isPast ? 'bg-[var(--text-secondary)]' : 'bg-[var(--border-subtle)]'
+                    }`}
+                  />
+                  <span
+                    className={`text-[10px] mt-0.5 tabular font-medium transition-colors ${
+                      isPast ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {deg}°
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
-          {/* User Dial Thumb */}
+          {/* User Dial Thumb: centered exactly on track */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none transition-transform"
+            className="absolute top-1/2 pointer-events-none transition-transform z-10"
             style={{
               left: `${pct}%`,
-              transform: `translate(-50%, -50%) scale(${isDragging ? 1.15 : 1})`
+              transform: `translate(-50%, -50%) scale(${isDragging ? 1.18 : 1})`
             }}
           >
             <div
-              className="w-7 h-7 rounded-full bg-white shadow-lg border-2 flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded-full bg-white shadow-xl border-2 flex items-center justify-center transition-colors"
               style={{ borderColor: getThermalColor(valueC) }}
             >
               <div
-                className="w-2.5 h-2.5 rounded-full"
+                className="w-2.5 h-2.5 rounded-full transition-colors"
                 style={{ backgroundColor: getThermalColor(valueC) }}
               />
             </div>
           </div>
 
-          {/* Revealed Actual Temperature Marker (if round ended) */}
+          {/* Revealed Actual Temperature Marker (Checkmark at actual location) */}
           {actualPct !== null && (
             <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-10"
+              initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
+              animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+              transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+              className="absolute top-1/2 pointer-events-none z-20"
               style={{ left: `${actualPct}%` }}
             >
-              <div className="w-7 h-7 rounded-full bg-[var(--status-success)] text-white shadow-xl flex items-center justify-center font-bold text-xs ring-4 ring-black/40">
+              <div className="w-7 h-7 rounded-full bg-[var(--status-success)] text-white shadow-2xl flex items-center justify-center font-bold text-xs ring-4 ring-black/40">
                 ✓
               </div>
             </motion.div>
@@ -201,7 +232,7 @@ export default function TemperatureDial({
 
       {/* 3. Fine-Tune Nudge Buttons (-1° / +1°) */}
       {!disabled && (
-        <div className="flex items-center gap-3 mt-1">
+        <div className="flex items-center gap-4 mt-2">
           <button
             onClick={() => adjustBy(-1)}
             className="px-4 py-2 rounded-full surface-pill text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] active:scale-95 transition-all touch-target"
@@ -209,7 +240,7 @@ export default function TemperatureDial({
           >
             − 1°
           </button>
-          <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-medium">
+          <span className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
             Fine tune
           </span>
           <button

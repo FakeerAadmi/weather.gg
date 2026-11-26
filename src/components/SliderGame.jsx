@@ -5,6 +5,9 @@ import TemperatureDial, { cToF } from './TemperatureDial';
 import {
   GlyphSun,
   GlyphMoon,
+  GlyphCloud,
+  GlyphCloudRain,
+  GlyphWind,
   GlyphThermometer,
   GlyphCheck,
   GlyphClose,
@@ -20,11 +23,18 @@ import {
   submitSliderPracticeGuess
 } from '../utils/apiClient';
 
-const GLYPH_MAP = {
-  sun: GlyphSun,
-  moon: GlyphMoon,
-  thermometer: GlyphThermometer
-};
+function getConditionGlyph(weatherCode, isDay) {
+  if ([61, 63, 65, 80, 81, 82, 51, 53, 55, 56, 57, 95, 96, 99].includes(weatherCode)) {
+    return GlyphCloudRain;
+  }
+  if ([2, 3].includes(weatherCode)) {
+    return GlyphCloud;
+  }
+  if ([45, 48].includes(weatherCode)) {
+    return GlyphWind;
+  }
+  return isDay ? GlyphSun : GlyphMoon;
+}
 
 export default function SliderGame({ onReturnHub, isPractice = false }) {
   const [loading, setLoading] = useState(true);
@@ -386,30 +396,31 @@ export default function SliderGame({ onReturnHub, isPractice = false }) {
 
       {/* Center Prompt & Slider */}
       <div className="my-auto w-full max-w-md mx-auto flex flex-col items-center text-center">
-        {/* City and Context */}
-        {currentPrompt && (
-          <div className="mb-6 flex flex-col items-center">
-            <span className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold mb-1">
-              What is the current temperature in
-            </span>
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-[-0.03em] text-[var(--text-primary)]">
-              {currentPrompt.city.name}
-            </h2>
-            <div className="text-sm sm:text-base text-[var(--text-secondary)] font-normal mt-1">
-              {currentPrompt.city.country} · {currentPrompt.city.continent}
-            </div>
+        {/* Atmospheric Cue is the Hero Main Info */}
+        {currentPrompt && (() => {
+          const ConditionIcon = getConditionGlyph(currentPrompt.weatherCode, currentPrompt.isDay);
+          return (
+            <div className="mb-6 flex flex-col items-center">
+              {/* 1. Main Hero: Weather Condition & Time */}
+              <div className="flex items-center gap-2.5 justify-center">
+                <ConditionIcon className="w-7 h-7 sm:w-8 sm:h-8 text-[var(--accent)] shrink-0" />
+                <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[var(--text-primary)] tabular">
+                  {currentPrompt.conditionGroup} · {currentPrompt.localTime}
+                </h2>
+              </div>
 
-            {/* Atmosphere Cue Line */}
-            <div className="mt-3 inline-flex items-center gap-2 px-3.5 py-1 rounded-full surface-pill text-xs font-medium text-[var(--text-secondary)] tabular">
-              {currentPrompt.isDay ? (
-                <GlyphSun className="w-3.5 h-3.5 text-[var(--accent)]" />
-              ) : (
-                <GlyphMoon className="w-3.5 h-3.5 text-[var(--accent)]" />
-              )}
-              <span>{currentPrompt.localTime} · {currentPrompt.timePhase} · {currentPrompt.conditionGroup}</span>
+              {/* 2. Secondary Atmospheric Phase */}
+              <div className="text-sm sm:text-base text-[var(--text-secondary)] font-medium mt-1">
+                {currentPrompt.timePhase}
+              </div>
+
+              {/* 3. Location Target Context */}
+              <div className="mt-2 text-xs sm:text-sm text-[var(--text-muted)] font-medium">
+                in <span className="text-[var(--text-primary)] font-semibold">{currentPrompt.city.name}</span>, {currentPrompt.city.country}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* The Tactile Temperature Dial */}
         <TemperatureDial
