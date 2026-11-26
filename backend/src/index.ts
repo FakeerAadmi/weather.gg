@@ -14,9 +14,14 @@ import {
   recordPlayerDailyResult,
   getDailySummary
 } from './db.js';
+import {
+  getOrLoadDailySliderChallenge,
+  calculateDialScore,
+  SliderRoundPrompt
+} from './slider.js';
 import { calculateDistanceKm, calculateBearing, calculateProximity } from './geo.js';
 import { fetchWeatherForCity } from './weather.js';
-import { generateClues, City, WeatherSnapshot } from './clues.js';
+import { generateClues, City, WeatherSnapshot, getConditionGroup, getTimePhaseHuman } from './clues.js';
 
 const app = new Hono();
 
@@ -299,6 +304,110 @@ app.get('/api/stats', (c) => {
     winRate,
     distribution: globalStats.distribution
   });
+});
+
+// 6. Temperature Slider Mode Endpoints (Dial the Atmosphere)
+const sliderPracticeStore = new Map<string, { city: City; actualTempC: number; weather: WeatherSnapshot }>();
+
+app.get('/api/slider/daily', async (c) => {
+  try {
+    const challenge = await getOrLoadDailySliderChallenge();
+    return c.json({
+      dayNumber: challenge.dayNumber,
+      dateStr: challenge.dateStr,
+      expiresAt: challenge.expiresAt,
+      rounds: challenge.rounds
+    });
+  } catch (err: any) {
+    console.error('Failed to get slider challenge:', err);
+    return c.json({ error: 'Failed to load slider daily challenge' }, 500);
+  }
+});
+
+app.post('/api/slider/guess', async (c) => {
+  try {
+    const body = await c.req.json() as { roundIndex: number; dialedTempC: number };
+    const { roundIndex, dialedTempC } = body;
+
+    if (roundIndex === undefined || dialedTempC === undefined) {
+      return c.json({ error: 'Missing roundIndex or dialedTempC' }, 400);
+    }
+
+    const challenge = await getOrLoadDailySliderChallenge();
+    if (roundIndex < 0 || roundIndex >= challenge.rounds.length) {
+      return c.json({ error: 'Invalid roundIndex' }, 400);
+    }
+
+    const actualTempC = challenge._secretActualTemps[roundIndex];
+    const diff = dialedTempC - actualTempC;
+    const score = calculateDialScore(diff);
+
+    return c.json({
+      roundIndex,
+      dialedTempC,
+      actualTempC,
+      diff,
+      score
+    });
+  } catch (err: any) {
+    console.error('Error calculating slider guess:', err);
+    return c.json({ error: 'Internal slider calculation error' }, 500);
+  }
+});
+
+app.post('/api/slider/practice/start', async (c) => {
+  try {
+    const city = getRandomCity();
+    const weather = await fetchWeatherForCity(city, `slider_practice_${city.id}_${Date.now()}`);
+    const actualTempC = Math.round(weather.current.temperature_2m);
+
+    const sessionId = `sliprac_${Math.random().toString(36).substring(2, 11)}`;
+    sliderPracticeStore.set(sessionId, { city, actualTempC, weather });
+
+    const localTime = weather.current.time ? weather.current.time.slice(11, 16) : '12:00';
+    const timePhase = getTimePhaseHuman(weather.current.time, weather.current.is_day);
+    const conditionGroup = getConditionGroup(weather.current.weather_code);
+
+    return c.json({
+      sessionId,
+      prompt: {
+        city: { id: city.id, name: city.name, country: city.country, continent: city.continent },
+        localTime,
+        timePhase,
+        conditionGroup,
+        weatherCode: weather.current.weather_code,
+        isDay: weather.current.is_day
+      }
+    });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to start slider practice' }, 500);
+  }
+});
+
+app.post('/api/slider/practice/guess', async (c) => {
+  try {
+    const body = await c.req.json() as { sessionId: string; dialedTempC: number };
+    const { sessionId, dialedTempC } = body;
+
+    const session = sliderPracticeStore.get(sessionId);
+    if (!session) {
+      return c.json({ error: 'Practice session expired' }, 404);
+    }
+
+    const actualTempC = session.actualTempC;
+    const diff = dialedTempC - actualTempC;
+    const score = calculateDialScore(diff);
+    sliderPracticeStore.delete(sessionId);
+
+    return c.json({
+      dialedTempC,
+      actualTempC,
+      diff,
+      score
+    });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to evaluate practice slider' }, 500);
+  }
 });
 
 const PORT = Number(process.env.PORT) || 3001;

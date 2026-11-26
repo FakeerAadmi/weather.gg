@@ -10,6 +10,8 @@ export default function Hub({
   dailyCompleted,
   onPlayDaily,
   onPlayPractice,
+  onPlaySliderDaily,
+  onPlaySliderPractice,
   onOpenStats,
   onOpenHelp
 }) {
@@ -81,35 +83,56 @@ export default function Hub({
         </p>
       </motion.div>
 
-      {/* Big Tactile Mode Pill Buttons */}
-      <div className="w-full max-w-sm mx-auto flex flex-col space-y-3 pb-4">
-        {/* Play Daily Button */}
-        <button
-          onClick={() => handleTap(onPlayDaily)}
-          className="w-full h-14 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-base font-semibold flex items-center justify-between px-6 shadow-sm hover:bg-[var(--accent-hover)] transition-transform active:scale-[0.98] touch-target"
-        >
-          <span>
-            {dailyCompleted ? 'View daily summary' : (hasPlayedDaily ? 'Resume daily' : 'Play daily')}
-          </span>
-          {dailyCompleted ? (
-            <GlyphCheck className="w-5 h-5 opacity-90" />
-          ) : (
-            <GlyphArrowRight className="w-5 h-5 opacity-90" />
-          )}
-        </button>
+      {/* Tactile Mode Selectors */}
+      <div className="w-full max-w-sm mx-auto flex flex-col space-y-3 pb-2">
+        {/* Mode 1: Guess the City */}
+        <div className="flex flex-col space-y-1.5">
+          <button
+            onClick={() => handleTap(onPlayDaily)}
+            className="w-full h-14 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-base font-semibold flex items-center justify-between px-6 shadow-sm hover:bg-[var(--accent-hover)] transition-transform active:scale-[0.98] touch-target"
+          >
+            <span>
+              {dailyCompleted ? 'View daily summary' : (hasPlayedDaily ? 'Resume mystery city' : 'Guess mystery city')}
+            </span>
+            {dailyCompleted ? (
+              <GlyphCheck className="w-5 h-5 opacity-90" />
+            ) : (
+              <GlyphArrowRight className="w-5 h-5 opacity-90" />
+            )}
+          </button>
+        </div>
 
-        {/* Practice Mode Button */}
-        <button
-          onClick={() => handleTap(onPlayPractice)}
-          className="w-full h-14 rounded-full surface-pill text-[var(--text-primary)] text-base font-semibold flex items-center justify-between px-6 transition-transform active:scale-[0.98] touch-target"
-        >
-          <span>Practice flight</span>
-          <GlyphArrowRight className="w-5 h-5 opacity-50" />
-        </button>
+        {/* Mode 2: Dial the Temperature (Dialed-Grade Slider) */}
+        <div className="flex flex-col space-y-1.5">
+          <button
+            onClick={() => handleTap(onPlaySliderDaily)}
+            className="w-full h-14 rounded-full surface-pill text-[var(--text-primary)] text-base font-semibold flex items-center justify-between px-6 hover:border-[var(--border-strong)] transition-transform active:scale-[0.98] touch-target"
+          >
+            <div className="flex items-center gap-2">
+              <span>Dial the temperature</span>
+              <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] text-[10px] uppercase font-bold tracking-wider">
+                5 rounds
+              </span>
+            </div>
+            <GlyphArrowRight className="w-5 h-5 opacity-70" />
+          </button>
+        </div>
 
-        {/* Upcoming Extensible Modes */}
-        <div className="pt-2 text-center text-xs text-[var(--text-muted)]">
-          Coming soon: Temperature Slider · Higher or Lower
+        {/* Practice Flight Links */}
+        <div className="pt-2 flex items-center justify-center gap-4 text-xs font-medium text-[var(--text-muted)]">
+          <button
+            onClick={() => handleTap(onPlayPractice)}
+            className="hover:text-[var(--text-primary)] transition-colors underline-offset-4 hover:underline"
+          >
+            Practice city flight
+          </button>
+          <span>·</span>
+          <button
+            onClick={() => handleTap(onPlaySliderPractice)}
+            className="hover:text-[var(--text-primary)] transition-colors underline-offset-4 hover:underline"
+          >
+            Practice dial
+          </button>
         </div>
       </div>
     </div>

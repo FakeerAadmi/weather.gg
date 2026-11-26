@@ -10,6 +10,7 @@ import StatsModal from './components/StatsModal';
 import HowToPlayModal from './components/HowToPlayModal';
 import SettingsModal from './components/SettingsModal';
 import AtmosphericAmbient from './components/AtmosphericAmbient';
+import SliderGame from './components/SliderGame';
 import SolvabilityDebugPanel from './components/SolvabilityDebugPanel';
 
 import cities from './data/cities.json';
@@ -374,6 +375,8 @@ export default function App() {
           dailyCompleted={!isPractice && (gameStatus === 'won' || gameStatus === 'lost')}
           onPlayDaily={handleStartDaily}
           onPlayPractice={handleStartPractice}
+          onPlaySliderDaily={() => setView('slider_daily')}
+          onPlaySliderPractice={() => setView('slider_practice')}
           onOpenStats={() => setIsStatsOpen(true)}
           onOpenHelp={() => setIsHowToPlayOpen(true)}
         />
@@ -389,6 +392,16 @@ export default function App() {
           onClose={() => setIsHowToPlayOpen(false)}
         />
       </div>
+    );
+  }
+
+  // RENDER: Temperature Slider Mode (Dialed-Grade Slider)
+  if (view === 'slider_daily' || view === 'slider_practice') {
+    return (
+      <SliderGame
+        isPractice={view === 'slider_practice'}
+        onReturnHub={() => setView('hub')}
+      />
     );
   }
 

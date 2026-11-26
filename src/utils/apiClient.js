@@ -26,7 +26,6 @@ export async function fetchDailyPuzzleFromBackend() {
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
-    // Backend unreachable (running purely client-side static)
     return null;
   }
 }
@@ -65,6 +64,63 @@ export async function fetchDailySummaryFromBackend() {
 export async function fetchGlobalStatsFromBackend() {
   try {
     const res = await fetch(`${API_BASE}/api/stats`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+// -------------------------------------------------------------
+// Temperature Slider Mode Endpoints
+// -------------------------------------------------------------
+
+export async function fetchSliderDailyFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE}/api/slider/daily`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function submitSliderGuessToBackend(roundIndex, dialedTempC) {
+  try {
+    const res = await fetch(`${API_BASE}/api/slider/guess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roundIndex, dialedTempC })
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function startSliderPracticeFromBackend() {
+  try {
+    const res = await fetch(`${API_BASE}/api/slider/practice/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function submitSliderPracticeGuess(sessionId, dialedTempC) {
+  try {
+    const res = await fetch(`${API_BASE}/api/slider/practice/guess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, dialedTempC })
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch (err) {
